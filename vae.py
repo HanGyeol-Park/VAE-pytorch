@@ -97,7 +97,7 @@ class VAE(nn.Module):
       return x
     else:
       x = self.decode(x)
-      return XMLPullParser
+      return x
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
