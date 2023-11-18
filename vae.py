@@ -31,19 +31,23 @@ class Encoder(nn.Module):
     self.bn4 = nn.BatchNorm2d(256, affine = True)
     self.average = nn.Linear()
     self.distribution =  nn.Linear()
-    self.parameterization = 
 
   def forward(self, x):
     x = self.conv1(x)
     x = self.bn1(x)
+    x = F.relu(x)
     x = self.conv2(x)
     x = self.bn2(x)
+    x = F.relu(x)
     x = self.conv3(x)
     x = self.bn3(x)
+    x = F.relu(x)
     x = self.conv4(x)
     x = self.bn4(x)
+    x = F.relu(x)
     x = self.conv5(x)
     x = torch.flatten(x, start_dim = 1)
+    print(x.shape)
     aver = self.average(x)
     dist = self.distribution(x)
     std = torch.exp(0.5 * aver)
@@ -52,7 +56,54 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
   def __init__(self):
+    super(Decoder, self).__init__()
+    self.conv1 = nn.ConvTranspose2d(100, 512, kernel_size = 6, stride = 1, padding = 0) #6
+    self.conv2 = nn.ConvTranspose2d(512, 256, kernel_size = 4, stride = 2, padding = 2) #10
+    self.conv3 = nn.ConvTranspose2d(256, 128, kernel_size = 4, stride = 2, padding = 2) #18
+    self.conv4 = nn.ConvTranspose2d(128, 64, kernel_size = 4, stride = 2, padding = 2) #34
+    self.conv5 = nn.ConvTranspose2d(64, 1, kernel_size = 4, stride = 2, padding = 3) # 64
+    self.bn1 = nn.BatchNorm2d(512, affine = True)
+    self.bn2 = nn.BatchNorm2d(256, affine = True)
+    self.bn3 = nn.BatchNorm2d(128, affine = True)
+    self.bn4 = nn.BatchNorm2d(64, affine = True)
 
+  def forward(self, x):
+    x = self.conv1(x)
+    x = self.bn1(x)
+    x = F.relu(x)
+    x = self.conv2(x)
+    x = self.bn2(x)
+    x = F.relu(x)
+    x = self.conv3(x)
+    x = self.bn3(x)
+    x = F.relu(x)
+    x = self.conv4(x)
+    x = F.relu(x)
+    x = self.conv5(x)
+    x = nn.Tanh(x)
+    return x
+
+
+class VAE(nn.Module):
+  def __init__(self):
+    super(VAE, self).__init__()
+    self.encode = Encoder()
+    self.decode = Decoder()
+
+  def forward(self, x, text = 'train'):
+    if text == 'train':
+      x = self.encode(x)
+      x = self.decode(x)
+      return x
+    else:
+      x = self.decode(x)
+      return XMLPullParser
+
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+VAE = VAE().to(device)
+VAEOptim = optim.Adam(VAE.parameters(), lr = 0.00015, betas=(0.5, 0.999))
+criterion = nn.BCELoss.to(device)
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
