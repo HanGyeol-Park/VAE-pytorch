@@ -114,4 +114,4 @@ criterion = nn.BCELoss.to(device)
 for epoch in range(30):
   for _, data in enumerate(trainloader, 0):
     images, labels = data
-    encoder.zero_grads()
+    VAE.zero_grads()
