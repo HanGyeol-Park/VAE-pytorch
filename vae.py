@@ -29,8 +29,8 @@ class Encoder(nn.Module):
     self.bn2 = nn.BatchNorm2d(64, affine = True)
     self.bn3 = nn.BatchNorm2d(128, affine = True)
     self.bn4 = nn.BatchNorm2d(256, affine = True)
-    self.average = nn.Linear()
-    self.distribution =  nn.Linear()
+    self.average = nn.Linear(256,1)
+    self.distribution =  nn.Linear(256,1)
 
   def forward(self, x):
     x = self.conv1(x)
@@ -47,7 +47,6 @@ class Encoder(nn.Module):
     x = F.relu(x)
     x = self.conv5(x)
     x = torch.flatten(x, start_dim = 1)
-    print(x.shape)
     aver = self.average(x)
     dist = self.distribution(x)
     std = torch.exp(0.5 * aver)
@@ -57,7 +56,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
   def __init__(self):
     super(Decoder, self).__init__()
-    self.conv1 = nn.ConvTranspose2d(100, 512, kernel_size = 6, stride = 1, padding = 0) #6
+    self.conv1 = nn.ConvTranspose2d(1, 512, kernel_size = 6, stride = 1, padding = 0) #6
     self.conv2 = nn.ConvTranspose2d(512, 256, kernel_size = 4, stride = 2, padding = 2) #10
     self.conv3 = nn.ConvTranspose2d(256, 128, kernel_size = 4, stride = 2, padding = 2) #18
     self.conv4 = nn.ConvTranspose2d(128, 64, kernel_size = 4, stride = 2, padding = 2) #34
@@ -66,6 +65,7 @@ class Decoder(nn.Module):
     self.bn2 = nn.BatchNorm2d(256, affine = True)
     self.bn3 = nn.BatchNorm2d(128, affine = True)
     self.bn4 = nn.BatchNorm2d(64, affine = True)
+    self.tanh = nn.Tanh()
 
   def forward(self, x):
     x = self.conv1(x)
@@ -80,7 +80,7 @@ class Decoder(nn.Module):
     x = self.conv4(x)
     x = F.relu(x)
     x = self.conv5(x)
-    x = nn.Tanh(x)
+    x = self.tanh(x)
     return x
 
 
@@ -93,25 +93,36 @@ class VAE(nn.Module):
   def forward(self, x, text = 'train'):
     if text == 'train':
       x = self.encode(x)
+      x = x.reshape(64,1,1,1)
       x = self.decode(x)
       return x
     else:
       x = self.decode(x)
       return x
 
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-VAE = VAE().to(device)
-VAEOptim = optim.Adam(VAE.parameters(), lr = 0.00015, betas=(0.5, 0.999))
-criterion = nn.BCELoss.to(device)
-
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-Encoder = Encoder().to(device)
-EncoderOptim = optim.Adam(Encoder.parameters(), lr = 0.00015, betas=(0.5, 0.999))
-criterion = nn.BCELoss.to(device)
+VAENet = VAE().to(device)
+VAEOptim = optim.Adam(VAENet.parameters(), lr = 0.00015, betas=(0.5, 0.999))
+criterion = nn.MSELoss().to(device)
 
 for epoch in range(30):
-  for _, data in enumerate(trainloader, 0):
+  VAENet.train()
+  for i, data in enumerate(trainloader, 0):
     images, labels = data
-    VAE.zero_grads()
+    VAENet.zero_grad()
+    real_image = images.to(device)
+    
+    gen_images = VAENet(real_image)
+    loss = criterion(real_image, gen_images)
+    loss.backward()
+    VAEOptim.step()
+
+    if i % 150 == 0:
+      print(f"loss: {loss.item()}")
+      plt.imshow(gen_images[0][0].detach().cpu(), cmap=plt.cm.gray_r)
+      plt.show()
+
+  with torch.no_grad():
+    VAENet.eval()
+    plt.imshow(gen_images[0][0].detach().cpu(), cmap=plt.cm.gray_r)
+    plt.show()
